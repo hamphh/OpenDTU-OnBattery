@@ -1,0 +1,32 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/javascript-node
+{
+	"name": "OpenDTU on Battery",
+	"image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+	"features": {
+		"ghcr.io/devcontainers/features/python:1": {
+			"installTools": true,
+			"version": "latest"
+		}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-vscode.cpptools-extension-pack",
+				"ms-python.python",
+				"platformio.platformio-ide",
+				"vue.volar",
+				"Vue.vscode-typescript-vue-plugin"
+			]
+		}
+	},
+	"forwardPorts": [
+		8008
+	],
+	"mounts": [
+		"source=/dev/,target=/dev/,type=bind,consistency=consistent"
+	],
+	"runArgs": [
+		"--privileged"
+	]
+}

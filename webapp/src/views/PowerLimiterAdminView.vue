@@ -363,7 +363,7 @@
                         :label="$t('powerlimiteradmin.VoltageLoadCorrectionFactor')"
                         v-model="powerLimiterConfigList.voltage_load_correction_factor"
                         placeholder="0.0001"
-                        postfix="1/A"
+                        postfix="1/W"
                         type="number"
                         step="0.0001"
                         wide

@@ -289,20 +289,37 @@ void PowerLimiterClass::loop()
         return _fullSolarPassThroughActive;
     };
 
-    auto getLoadCorrectedVoltage = [this,&config]() -> float {
-        // TODO(schlimmchen): use the battery's data if available,
-        // i.e., the current drawn from the battery as reported by the battery.
-        float acPower = getBatteryInvertersOutputAcWatts();
-        float dcVoltage = getBatteryVoltage();
+    auto getBatteryLoad = [this,&config](float dcVoltage) -> float {
+        float power = 0;
+        
+        if (dcVoltage > 0.0) {
+            power = -getBatteryInvertersOutputAcWatts(); // negative because the inverter is discharging the battery (voltage decreased)
+        }
 
+        if (config.Battery.Enabled) {
+            auto stats = Battery.getStats();
+    
+            if (stats->isCurrentValid() && stats->getChargeCurrentAgeSeconds() < 60) {
+                power = dcVoltage * stats->getChargeCurrent();
+                // current is signed: negative when the battery is discharging (voltage decreased), and positive when the battery is charging (voltage increased).
+            }
+        }
+
+        return power;
+    };
+
+    auto getLoadCorrectedVoltage = [this,&config](float dcVoltage, float batteryPower) -> float {
         if (dcVoltage <= 0.0) { return 0.0; }
 
-        return dcVoltage + (acPower * config.PowerLimiter.VoltageLoadCorrectionFactor);
+        return dcVoltage - (batteryPower * config.PowerLimiter.VoltageLoadCorrectionFactor);
     };
 
     _batteryDischargeEnabled = getBatteryPower();
     _fullSolarPassThroughActive = getFullSolarPassthrough();
-    _loadCorrectedVoltage = getLoadCorrectedVoltage();
+    
+    float dcVoltage = getBatteryVoltage(true/*log voltages only once per DPL loop*/);
+    float batteryLoad = getBatteryLoad(dcVoltage);
+    _loadCorrectedVoltage = getLoadCorrectedVoltage(dcVoltage, batteryLoad);
 
     DTU_LOGD("up %lu s, it is %s, next inverter restart at %d s (set to %d)",
             millis()/1000,
@@ -318,10 +335,9 @@ void PowerLimiterClass::loop()
                 Battery.getStats()->getSoCAgeSeconds(),
                 (Battery.getStats()->isSoCValid()?"valid":"stale"));
 
-        auto dcVoltage = getBatteryVoltage(true/*log voltages only once per DPL loop*/);
-        DTU_LOGD("battery voltage %.2f V, load-corrected voltage %.2f V @ %.0f W, factor %.5f 1/A",
+        DTU_LOGD("battery voltage %.2f V, load-corrected voltage %.2f V @ %.0f W, factor %.5f 1/W",
                 dcVoltage, _loadCorrectedVoltage,
-                getBatteryInvertersOutputAcWatts(),
+                batteryLoad,
                 config.PowerLimiter.VoltageLoadCorrectionFactor);
 
         DTU_LOGD("battery discharge %s, start %.2f V or %u %%, stop %.2f V or %u %%",
